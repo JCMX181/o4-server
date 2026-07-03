@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O4 服务器 · 机械动力</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #080a0d;
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, system-ui, sans-serif;
+            padding: 20px;
+            margin: 0;
+            color: #c0dce8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* ===== 背景装饰（保持不变） ===== */
+        .bg-mech {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .bg-mech .gear {
+            position: absolute;
+            color: rgba(0,180,255,0.04);
+            animation: spinSlow 45s linear infinite;
+        }
+        .bg-mech .gear:nth-child(1) { font-size: 220px; top: -60px; left: -60px; }
+        .bg-mech .gear:nth-child(2) { font-size: 320px; bottom: -120px; right: -100px; animation-direction: reverse; color: rgba(184,115,51,0.035); }
+        .bg-mech .gear:nth-child(3) { font-size: 140px; top: 35%; left: 75%; color: rgba(255,200,0,0.025); }
+        .bg-mech .gear:nth-child(4) { font-size: 90px; top: 12%; left: 35%; color: rgba(0,255,200,0.025); }
+        @keyframes spinSlow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            background: rgba(0,200,255,0.12);
+            pointer-events: none;
+            animation: floatParticle linear infinite;
+            z-index: 0;
+        }
+        .particle:nth-child(5) { width: 6px; height: 6px; left: 10%; top: 20%; animation-duration: 22s; }
+        .particle:nth-child(6) { width: 4px; height: 4px; left: 25%; top: 60%; animation-duration: 18s; animation-delay: 3s; }
+        .particle:nth-child(7) { width: 8px; height: 8px; left: 55%; top: 30%; animation-duration: 26s; animation-delay: 6s; background: rgba(184,115,51,0.10); }
+        .particle:nth-child(8) { width: 5px; height: 5px; left: 70%; top: 80%; animation-duration: 20s; animation-delay: 2s; }
+        .particle:nth-child(9) { width: 7px; height: 7px; left: 90%; top: 10%; animation-duration: 24s; animation-delay: 8s; background: rgba(255,200,0,0.08); }
+        @keyframes floatParticle {
+            0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
+            20% { opacity: 0.8; }
+            80% { opacity: 0.8; }
+            100% { transform: translateY(-120vh) translateX(20px) scale(1.2); opacity: 0; }
+        }
+
+        /* ===== 导航栏 ===== */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 9999;
+            background: rgba(8, 12, 18, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 200, 255, 0.2);
+            padding: 0 20px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+        }
+        .top-bar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            color: #00e5ff;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+        .top-bar .brand i { color: #f0a500; animation: spinSlow 8s linear infinite; }
+        .top-bar .nav-links { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+        .top-bar .nav-links a,
+        .top-bar .dropdown-toggle {
+            color: #b0d0e0;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 4px 0;
+            border-bottom: 2px solid transparent;
+            transition: 0.3s;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .top-bar .nav-links a:hover,
+        .top-bar .dropdown-toggle:hover {
+            color: #00e5ff;
+            border-bottom-color: #00e5ff;
+        }
+        .top-bar .dropdown { position: relative; }
+        .top-bar .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 18, 28, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 200, 255, 0.25);
+            border-radius: 12px;
+            padding: 8px 0;
+            min-width: 170px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+        }
+        .top-bar .dropdown-menu.open { display: block; }
+        .top-bar .dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            color: #b0d0e0;
+            text-decoration: none;
+            font-size: 0.85rem;
+            border-left: 3px solid transparent;
+            transition: 0.2s;
+            border-bottom: none;
+        }
+        .top-bar .dropdown-menu a:hover {
+            background: rgba(0, 200, 255, 0.08);
+            border-left-color: #00e5ff;
+            color: #ffffff;
+        }
+        .top-bar .dropdown-menu a i { width: 20px; text-align: center; color: #f0a500; }
+        .top-bar .dropdown-menu .divider {
+            height: 1px;
+            background: rgba(0, 200, 255, 0.1);
+            margin: 4px 12px;
+        }
+
+        /* ===== 主容器 ===== */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1020px;
+            width: 100%;
+            margin-top: 76px;
+            background: rgba(8, 14, 20, 0.88);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(0, 200, 255, 0.25);
+            border-radius: 52px;
+            padding: 40px 35px 50px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 200, 255, 0.15) inset, 0 0 60px rgba(0, 180, 255, 0.06);
+            min-height: 600px;
+        }
+
+        /* ===== 页面切换 ===== */
+        .page-content { display: none; animation: fadeIn 0.4s ease; }
+        .page-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== 首页样式 ===== */
+        .header { text-align: center; margin-bottom: 20px; }
+        .server-name {
+            font-size: 4.2rem;
+            font-weight: 800;
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, #00e5ff, #00b4d8, #0077b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+            position: relative;
+            text-shadow: 0 0 60px rgba(0,200,255,0.3);
+        }
+        .gear-group { display: inline-flex; gap: 15px; margin: 0 10px; vertical-align: middle; }
+        .gear-group .mini-gear {
+            font-size: 2rem;
+            color: #b87333;
+            filter: drop-shadow(0 0 10px #b8733377);
+            animation: spinSlow 12s linear infinite;
+            display: inline-block;
+        }
+        .gear-group .mini-gear:nth-child(2) {
+            animation-duration: 16s;
+            animation-direction: reverse;
+            color: #d4a373;
+            font-size: 2.4rem;
+        }
+        .server-tagline {
+            font-size: 1.2rem;
+            color: #8ab4c8;
+            margin-top: 8px;
+            letter-spacing: 4px;
+            font-weight: 300;
+            border-top: 1px solid rgba(0, 200, 255, 0.15);
+            border-bottom: 1px solid rgba(0, 200, 255, 0.15);
+            display: inline-block;
+            padding: 6px 24px;
+            border-radius: 40px;
+            background: rgba(0, 20, 30, 0.4);
+            backdrop-filter: blur(2px);
+        }
+        .server-tagline i { margin: 0 8px; color: #f0a500; }
+
+        .concept-banner {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin: 25px 0 20px;
+            padding: 16px 20px;
+            background: rgba(0, 40, 60, 0.3);
+            border-radius: 60px;
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            backdrop-filter: blur(4px);
+        }
+        .concept-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #c0dce8;
+            font-weight: 500;
+            font-size: 1rem;
+            padding: 6px 16px;
+            border-radius: 40px;
+            background: rgba(0, 0, 0, 0.25);
+            transition: 0.3s;
+            border: 1px solid transparent;
+        }
+        .concept-item i { font-size: 1.5rem; }
+        .concept-item .fa-cogs { color: #00c8ff; }
+        .concept-item .fa-gear { color: #ffb347; }
+        .concept-item .fa-cubes { color: #ffd966; }
+        .concept-item:hover {
+            transform: translateY(-3px);
+            background: rgba(0, 180, 255, 0.1);
+            border-color: rgba(0, 200, 255, 0.2);
+        }
+
+        .hero-wrapper { margin: 10px 0 10px; }
+        .hero-image {
+            border-radius: 32px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 200, 255, 0.2);
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.7);
+            transition: 0.4s;
+        }
+        .hero-image img { width: 100%; height: auto; display: block; transition: transform 0.6s ease; }
+        .hero-image:hover img { transform: scale(1.02); }
+        .hero-image::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+            pointer-events: none;
+        }
+        .ai-credit {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 12px 0 5px;
+            padding: 8px 18px;
+            background: rgba(0, 30, 50, 0.5);
+            border-radius: 40px;
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            color: #6a8a9a;
+            font-size: 0.8rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .ai-credit i { color: #f0a500; font-size: 0.9rem; }
+
+        .section-title {
+            text-align: center;
+            color: #8ab4c8;
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin: 30px 0 20px;
+            letter-spacing: 3px;
+        }
+        .section-title i { color: #f0a500; margin: 0 10px; }
+        .section-title::before, .section-title::after {
+            content: "——";
+            color: rgba(0, 200, 255, 0.15);
+            letter-spacing: 6px;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .feature-card {
+            background: rgba(20, 30, 40, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 24px 18px;
+            border-radius: 28px;
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            text-align: center;
+            transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(0, 200, 255, 0.3);
+            box-shadow: 0 15px 45px rgba(0, 180, 255, 0.2);
+        }
+        .feature-card i { font-size: 2.8rem; margin-bottom: 12px; display: block; color: #00c8ff; }
+        .feature-card .fa-gears { color: #ffb347; }
+        .feature-card .fa-cubes { color: #ffd966; }
+        .feature-card h3 { color: #e0f0fa; font-size: 1.2rem; margin-bottom: 6px; }
+        .feature-card p { color: #8aaec0; font-size: 0.9rem; line-height: 1.5; }
+
+        .mod-list {
+            background: rgba(0, 30, 50, 0.3);
+            border-radius: 30px;
+            padding: 25px 20px;
+            margin: 20px 0 25px;
+            border: 1px solid rgba(0, 200, 255, 0.06);
+        }
+        .mod-list h3 {
+            color: #e0f0fa;
+            font-weight: 400;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+        .mod-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+        .mod-tag {
+            background: rgba(0, 200, 255, 0.06);
+            padding: 8px 20px;
+            border-radius: 30px;
+            color: #b0d4e8;
+            font-size: 0.9rem;
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            transition: 0.3s;
+            cursor: default;
+        }
+        .mod-tag:hover {
+            background: rgba(0, 200, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        .mod-tag i { margin-right: 6px; color: #f0a500; }
+        /* 首页标签中的链接样式（保留备用） */
+        .mod-tag a {
+            color: #b0d4e8;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(176, 212, 232, 0.3);
+            transition: 0.3s;
+        }
+        .mod-tag a:hover {
+            color: #ffffff;
+            border-bottom-color: #00e5ff;
+        }
+
+        .cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 38px;
+            border-radius: 60px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            background: linear-gradient(145deg, #0088cc, #005f8a);
+            color: #fff;
+            box-shadow: 0 8px 25px rgba(0, 150, 255, 0.3);
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn:hover {
+            transform: scale(1.05) translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0, 200, 255, 0.5);
+            background: linear-gradient(145deg, #0099dd, #006699);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: none;
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); }
+
+        /* ===== 二维码模态框样式 ===== */
+        .qr-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 99999;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .qr-modal.open {
+            display: flex;
+        }
+        .qr-modal-content {
+            background: rgba(10, 18, 28, 0.95);
+            border: 1px solid rgba(0, 200, 255, 0.25);
+            border-radius: 30px;
+            padding: 30px 40px 40px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            position: relative;
+            animation: scaleUp 0.3s ease;
+        }
+        @keyframes scaleUp {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .qr-modal-content .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 1.8rem;
+            color: #6a8a9a;
+            cursor: pointer;
+            transition: 0.3s;
+            background: none;
+            border: none;
+            font-family: inherit;
+        }
+        .qr-modal-content .close-btn:hover {
+            color: #00e5ff;
+            transform: rotate(90deg);
+        }
+        .qr-modal-content h2 {
+            color: #00e5ff;
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        .qr-modal-content p {
+            color: #8ab4c8;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .qr-modal-content .qr-code {
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 16px;
+            background: #fff;
+            padding: 8px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-modal-content .qr-code img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .qr-modal-content .group-number {
+            color: #b0d0e0;
+            font-size: 1.1rem;
+            background: rgba(0, 200, 255, 0.06);
+            padding: 8px 16px;
+            border-radius: 30px;
+            border: 1px solid rgba(0, 200, 255, 0.1);
+            display: inline-block;
+        }
+
+        /* ===== 信息页面通用 ===== */
+        .info-page { padding: 10px 0; }
+        .info-page .page-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #00e5ff;
+            text-align: center;
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+            border-bottom: 2px solid rgba(0, 200, 255, 0.1);
+            padding-bottom: 15px;
+        }
+        .info-page .page-title i { color: #f0a500; margin-right: 12px; }
+        .info-section {
+            background: rgba(10, 20, 30, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            border-radius: 24px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            transition: 0.3s;
+        }
+        .info-section:hover { border-color: rgba(0, 200, 255, 0.2); }
+        .info-section h3 {
+            color: #e0f0fa;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+        .info-section h3 i { color: #f0a500; margin-right: 10px; }
+        .info-section p {
+            color: #b0d0e0;
+            line-height: 1.8;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+        .info-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        .info-section ul li {
+            color: #b0d0e0;
+            padding: 6px 0 6px 28px;
+            position: relative;
+            line-height: 1.6;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .info-section ul li:last-child { border-bottom: none; }
+        .info-section ul li::before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #f0a500;
+            font-weight: bold;
+        }
+        .info-section.highlight {
+            border-color: rgba(0, 200, 255, 0.2);
+            background: rgba(0, 40, 60, 0.3);
+            text-align: center;
+        }
+        .info-section.highlight code {
+            background: rgba(0, 200, 255, 0.1);
+            padding: 2px 12px;
+            border-radius: 6px;
+            color: #00e5ff;
+        }
+
+        .mod-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .mod-grid .mod-item {
+            background: rgba(0, 30, 50, 0.3);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(0, 200, 255, 0.06);
+            transition: 0.3s;
+        }
+        .mod-grid .mod-item:hover {
+            border-color: rgba(0, 200, 255, 0.2);
+            transform: translateY(-4px);
+        }
+        .mod-grid .mod-item i {
+            font-size: 2rem;
+            color: #f0a500;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .mod-grid .mod-item h4 { color: #e0f0fa; font-size: 1rem; margin-bottom: 4px; }
+        .mod-grid .mod-item p { color: #8aaec0; font-size: 0.85rem; }
+
+        /* ===== 模组列表中的链接样式 ===== */
+        .mod-grid .mod-item h4 a {
+            color: #00e5ff;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(0, 229, 255, 0.3);
+            transition: 0.3s;
+        }
+        .mod-grid .mod-item h4 a:hover {
+            color: #66f0ff;
+            border-bottom-color: #00e5ff;
+        }
+
+        .rule-item {
+            display: flex;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .rule-item:last-child { border-bottom: none; }
+        .rule-item .rule-icon {
+            font-size: 1.4rem;
+            color: #f0a500;
+            flex-shrink: 0;
+            width: 30px;
+            text-align: center;
+        }
+        .rule-item .rule-content h4 { color: #e0f0fa; font-size: 1rem; margin-bottom: 2px; }
+        .rule-item .rule-content p { color: #8aaec0; font-size: 0.9rem; margin: 0; }
+
+        .staff-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .staff-card {
+            background: rgba(10, 20, 30, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            border-radius: 20px;
+            padding: 24px 16px;
+            text-align: center;
+            transition: 0.3s;
+        }
+        .staff-card:hover {
+            border-color: rgba(0, 200, 255, 0.25);
+            transform: translateY(-6px);
+            box-shadow: 0 10px 30px rgba(0, 180, 255, 0.08);
+        }
+        .staff-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(0, 200, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            color: #f0a500;
+            border: 2px solid rgba(0, 200, 255, 0.15);
+            margin: 0 auto 14px;
+        }
+        .staff-info h4 { color: #e0f0fa; font-size: 1.1rem; margin-bottom: 2px; }
+        .staff-role {
+            color: #00b4d8;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .staff-info p { color: #8aaec0; font-size: 0.9rem; line-height: 1.4; }
+
+        /* ===== 管理员页面的功能按钮 ===== */
+        .staff-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 30px 0 20px;
+            flex-wrap: wrap;
+        }
+        .staff-actions .btn-report,
+        .staff-actions .btn-apply {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 30px;
+            border-radius: 60px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .staff-actions .btn-report {
+            background: linear-gradient(145deg, #b71c1c, #7f0000);
+            color: #fff;
+        }
+        .staff-actions .btn-report:hover {
+            transform: scale(1.05) translateY(-3px);
+            box-shadow: 0 8px 25px rgba(183, 28, 28, 0.5);
+            background: linear-gradient(145deg, #d32f2f, #b71c1c);
+        }
+        .staff-actions .btn-apply {
+            background: linear-gradient(145deg, #f0a500, #c47d00);
+            color: #fff;
+        }
+        .staff-actions .btn-apply:hover {
+            transform: scale(1.05) translateY(-3px);
+            box-shadow: 0 8px 25px rgba(240, 165, 0, 0.5);
+            background: linear-gradient(145deg, #ffb300, #f0a500);
+        }
+
+        .commands-section { margin: 30px 0 20px; }
+        .commands-section h3 {
+            color: #e0f0fa;
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            border-left: 4px solid #f0a500;
+            padding-left: 16px;
+        }
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 16px;
+        }
+        .command-card {
+            background: rgba(10, 20, 30, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 200, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px 18px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            transition: 0.3s;
+        }
+        .command-card:hover {
+            border-color: rgba(0, 200, 255, 0.25);
+            transform: translateY(-4px);
+        }
+        .command-card .cmd-icon {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 200, 255, 0.08);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #f0a500;
+        }
+        .command-card .cmd-body code {
+            display: block;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 10px;
+            border-radius: 6px;
+            color: #00e5ff;
+            font-size: 0.95rem;
+            font-family: 'Consolas', monospace;
+            margin-bottom: 4px;
+        }
+        .command-card .cmd-desc {
+            display: block;
+            color: #b0d0e0;
+            font-size: 0.9rem;
+        }
+        .command-card .cmd-example {
+            display: block;
+            color: #8aaec0;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .command-card .cmd-example code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0 6px;
+            border-radius: 4px;
+            color: #d4a373;
+            font-size: 0.85rem;
+            display: inline;
+        }
+
+        .footer {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            color: #3a5a6a;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            padding-top: 20px;
+            gap: 10px;
+        }
+        .footer-left i { color: #f0a500; margin: 0 4px; }
+        .footer-right {
+            color: #4a7a8a;
+            font-size: 0.7rem;
+            background: rgba(0, 30, 50, 0.3);
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 200, 255, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .footer-right .core-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00e5ff;
+            box-shadow: 0 0 20px #00e5ff;
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.5; transform: scale(0.9); } }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 700px) {
+            .container { padding: 25px 16px; border-radius: 32px; }
+            .server-name { font-size: 2.8rem; letter-spacing: 4px; }
+            .gear-group .mini-gear { font-size: 1.4rem; }
+            .concept-banner { gap: 12px; padding: 12px 10px; }
+            .concept-item { font-size: 0.9rem; padding: 4px 14px; }
+            .features { grid-template-columns: 1fr 1fr; }
+            .section-title::before, .section-title::after { content: ""; }
+            .footer { flex-direction: column; text-align: center; }
+            .top-bar .nav-links a:not(.dropdown-toggle) { font-size: 0.75rem; }
+            .top-bar .brand { font-size: 0.85rem; }
+            .dropdown-menu { left: 0; transform: translateX(0); min-width: 140px; }
+            .top-bar .dropdown-menu { transform: translateX(0); }
+            .command-grid { grid-template-columns: 1fr; }
+            .mod-grid { grid-template-columns: 1fr 1fr; }
+            .info-page .page-title { font-size: 1.8rem; }
+            .staff-actions { gap: 12px; }
+            .staff-actions .btn-report,
+            .staff-actions .btn-apply { padding: 10px 20px; font-size: 0.9rem; }
+            .qr-modal-content { padding: 20px; }
+            .qr-modal-content .qr-code { width: 160px; height: 160px; }
+        }
+        @media (max-width: 450px) {
+            .features { grid-template-columns: 1fr; }
+            .btn { width: 100%; justify-content: center; }
+            .server-tagline { font-size: 0.95rem; letter-spacing: 2px; padding: 4px 12px; }
+            .mod-grid { grid-template-columns: 1fr; }
+            .top-bar .nav-links { gap: 12px; }
+            .staff-actions { flex-direction: column; align-items: center; }
+            .staff-actions .btn-report,
+            .staff-actions .btn-apply { width: 80%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景装饰 -->
+    <div class="bg-mech">
+        <div class="gear"><i class="fas fa-cog"></i></div>
+        <div class="gear"><i class="fas fa-cog"></i></div>
+        <div class="gear"><i class="fas fa-cog"></i></div>
+        <div class="gear"><i class="fas fa-cog"></i></div>
+    </div>
+    <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+
+    <!-- ===== 导航栏 ===== -->
+    <nav class="top-bar">
+        <div class="brand"><i class="fas fa-cog"></i> O4 工业</div>
+        <div class="nav-links">
+            <a id="nav-home"><i class="fas fa-home"></i> 首页</a>
+            <div class="dropdown" id="serverDropdown">
+                <span class="dropdown-toggle" id="dropdownToggle">
+                    服务器 <i class="fas fa-chevron-down"></i>
+                </span>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <a data-page="intro"><i class="fas fa-server"></i> 服务器介绍</a>
+                    <a data-page="mods"><i class="fas fa-cubes"></i> 模组列表</a>
+                    <div class="divider"></div>
+                    <a data-page="rules"><i class="fas fa-gavel"></i> 规则公告</a>
+                    <a data-page="guide"><i class="fas fa-book"></i> 游戏指南</a>
+                    <div class="divider"></div>
+                    <a data-page="staff"><i class="fas fa-user-shield"></i> 管理员列表</a>
+                    <a data-page="commands"><i class="fas fa-terminal"></i> 命令大全</a>
+                </div>
+            </div>
+            <!-- 加群按钮改为打开二维码模态框 -->
+            <a href="javascript:void(0)" class="btn-qr-open" onclick="openQrModal()">
+                <i class="fab fa-qq"></i> 加群
+            </a>
+        </div>
+    </nav>
+
+    <!-- ===== 二维码模态框 ===== -->
+    <div class="qr-modal" id="qrModal" onclick="if(event.target===this) closeQrModal()">
+        <div class="qr-modal-content">
+            <button class="close-btn" onclick="closeQrModal()">&times;</button>
+            <h2><i class="fab fa-qq"></i> 扫码加群</h2>
+            <p>使用手机 QQ 扫描下方二维码加入群聊</p>
+            <div class="qr-code">
+                <!-- 请将你的群二维码图片命名为 qq-qr.png 并放在网站根目录 -->
+                <img src="qq-qr.png" alt="QQ群二维码" onerror="this.parentElement.innerHTML='<span style=\'color:#6a8a9a;\'>请上传二维码图片<br>qq-qr.png</span>'">
+            </div>
+            <div class="group-number">
+                <i class="fas fa-users"></i> 群号：142193252
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 主容器 ===== -->
+    <div class="container">
+
+        <!-- ===== 首页 ===== -->
+        <div id="page-home" class="page-content active">
+            <div class="header">
+                <h1 class="server-name">
+                    <span class="gear-group"><span class="mini-gear"><i class="fas fa-cog"></i></span><span class="mini-gear"><i class="fas fa-cog"></i></span><span class="mini-gear"><i class="fas fa-cog"></i></span></span>
+                    O4 服务器
+                    <span class="gear-group"><span class="mini-gear"><i class="fas fa-cog"></i></span><span class="mini-gear"><i class="fas fa-cog"></i></span><span class="mini-gear"><i class="fas fa-cog"></i></span></span>
+                </h1>
+                <div class="server-tagline">
+                    <i class="fas fa-robot"></i> 机械动力 · 工业纪元 <i class="fas fa-bolt"></i> 创造 · 自动化 · 生存
+                </div>
+            </div>
+
+            <div class="concept-banner">
+                <span class="concept-item"><i class="fas fa-cogs"></i> 全自动化工厂</span>
+                <span class="concept-item"><i class="fas fa-gear"></i> 精密机械传动</span>
+                <span class="concept-item"><i class="fas fa-cubes"></i> 创造×生存融合</span>
+            </div>
+
+            <div class="hero-wrapper">
+                <div class="hero-image">
+                    <img src="机械动力&沉浸工程.png" alt="机械动力 & 沉浸工艺">
+                </div>
+                <div class="ai-credit">
+                    <i class="fas fa-robot"></i> 本页图片由 AI 生成
+                    <i class="fas fa-cog" style="margin-left:6px; font-size:0.7rem;"></i>
+                </div>
+            </div>
+
+            <div class="section-title"><i class="fas fa-cog fa-spin"></i> 核心玩法 <i class="fas fa-cog fa-spin"></i></div>
+            <div class="features">
+                <div class="feature-card">
+                    <i class="fas fa-industry"></i>
+                    <h3>⚙️ 机械动力</h3>
+                    <p>全版本机械动力模组，搭建自动化流水线，从采矿到合成全自动。</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-gears"></i>
+                    <h3>🔧 精密传动</h3>
+                    <p>齿轮、轴承、传动杆，构建复杂的机械系统，享受物理模拟的乐趣。</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-people-arrows"></i>
+                    <h3>🤝 社区共生</h3>
+                    <p>玩家共建工业城市，贸易、合作、竞技，打造属于你的机械帝国。</p>
+                </div>
+            </div>
+
+            <!-- ===== 首页“服务器特色模组”：工业长路无链接 ===== -->
+            <div class="mod-list">
+                <h3><i class="fas fa-cubes"></i> 服务器特色模组</h3>
+                <div class="mod-tags">
+                    <span class="mod-tag"><i class="fas fa-cog"></i> 机械动力 (Create)</span>
+                    <span class="mod-tag"><i class="fas fa-book"></i> JEI 物品管理器</span>
+                    <span class="mod-tag"><i class="fas fa-map"></i> Xaero 小地图</span>
+                    <span class="mod-tag"><i class="fas fa-helmet-safety"></i> 沉浸工程</span>
+                    <span class="mod-tag"><i class="fas fa-train"></i> 机械动力工业长路</span>
+                    <span class="mod-tag"><i class="fas fa-cubes"></i> 更多箱子</span>
+                </div>
+            </div>
+
+            <div class="cta">
+                <a href="https://space.bilibili.com/1584006312?spm_id_from=333.788.0.0" class="btn" target="_blank">
+                    <i class="fab fa-bilibili"></i> 腐竹 B站主页
+                </a>
+                <!-- 使用模态框打开二维码 -->
+                <a href="javascript:void(0)" class="btn btn-secondary" onclick="openQrModal()">
+                    <i class="fab fa-qq"></i> 加入QQ群：142193252
+                </a>
+            </div>
+        </div>
+
+        <!-- ===== 服务器介绍 ===== -->
+        <div id="page-intro" class="page-content info-page">
+            <h2 class="page-title"><i class="fas fa-server"></i> 服务器介绍</h2>
+            <div class="info-section">
+                <h3><i class="fas fa-cogs"></i> 核心模组：机械动力 (Create)</h3>
+                <p><strong>机械动力</strong> 是我们服务器的工业心脏。它带来了一个基于物理的机械系统，让自动化不再是简单的"方块替换"，而是真正的工程艺术。</p>
+                <ul>
+                    <li><strong>⚙️ 真实传动</strong> — 齿轮、轴承、传动杆，所有机械部件都需要合理布局，动力才能高效传递。</li>
+                    <li><strong>🏗️ 模块化建造</strong> — 从简单的磨粉机到复杂的全自动生产线，每一个机械系统都由你亲手搭建。</li>
+                    <li><strong>🚂 动态运输</strong> — 传送带、矿车、动力火车，构建属于你的物流网络。</li>
+                    <li><strong>💡 创造与生存融合</strong> — 机械动力不仅服务于自动化，也服务于建筑美学，让你的工厂成为艺术品。</li>
+                </ul>
+            </div>
+            <div class="info-section">
+                <h3><i class="fas fa-hard-hat"></i> 拓展模组：沉浸工程 (Immersive Engineering)</h3>
+                <p><strong>沉浸工程</strong> 为服务器注入了厚重而真实的工业气息。它强调"身临其境"的机械体验，从多方块结构的发电机到高耸的输电塔，每一座工厂都是一件工业时代的雕塑。</p>
+                <ul>
+                    <li><strong>🔌 电力系统</strong> — 建造柴油发电机、水力涡轮、风力发电机，搭建完整的电网系统。</li>
+                    <li><strong>🏭 多方块结构</strong> — 大型粉碎机、高炉、电弧炉，真实的工业设施需要大型设备来完成。</li>
+                    <li><strong>⛏️ 矿产加工</strong> — 从原矿到成品，经历粉碎、洗矿、冶炼、锻造，完整的工业生产链条。</li>
+                    <li><strong>🌿 与自然共生</strong> — 沉浸工程的机械设计风格粗犷而自然，与周围环境融为一体。</li>
+                </ul>
+            </div>
+            <div class="info-section">
+                <h3><i class="fas fa-handshake"></i> 两大工业体系的交汇</h3>
+                <p>在 O4 服务器，<strong>机械动力</strong> 的精巧传动与 <strong>沉浸工程</strong> 的厚重工业将相互融合。</p>
+                <ul>
+                    <li><strong>⚡ 机械动力驱动沉浸设备</strong> — 用机械动力的旋转动力为沉浸工程的机器供能。</li>
+                    <li><strong>🏭 沉浸工程升级机械产线</strong> — 用沉浸工程的大型设备处理机械动力产出的中间产物。</li>
+                    <li><strong>🔧 共建工业生态</strong> — 与其他玩家合作，从采矿、冶炼到加工、制造，形成完整的工业化产业链。</li>
+                </ul>
+            </div>
+            <div class="info-section highlight">
+                <h3><i class="fas fa-rocket"></i> 加入我们，成为工业时代的奠基者</h3>
+                <p>O4 服务器不仅仅是一个游戏世界，更是一个由玩家共同建造的工业文明。无论你是精通红石与传动的工程师，还是擅长规划与统筹的工业设计师，这里都有属于你的舞台。</p>
+                <p><strong>服务器地址：</strong> <code>play.simpfun.cn:31409</code><br>
+                <strong>QQ群：</strong> <code>142193252</code></p>
+            </div>
+        </div>
+
+        <!-- ===== 模组列表（工业长路无链接，标题有链接） ===== -->
+        <div id="page-mods" class="page-content info-page">
+            <h2 class="page-title" style="text-align: center;">
+                <a href="https://1851776140.share.123pan.cn/123pan/ANiBvd-FcL9h?pwd=OVb9#" target="_blank" style="color: #00e5ff; text-decoration: none; border-bottom: 1px dashed rgba(0, 229, 255, 0.3); transition: 0.3s;">
+                    <i class="fas fa-cubes"></i> 服务器模组列表
+                </a>
+            </h2>
+            <div class="info-section">
+                <p>以下是 O4 服务器当前安装的全部模组（按类别整理）。所有模组均与 <strong>Minecraft 1.20.1 / Forge</strong> 兼容。</p>
+            </div>
+            <div class="mod-grid">
+                <!-- 机械动力系列 -->
+                <div class="mod-item"><i class="fas fa-cog"></i><h4>机械动力 (Create)</h4><p>核心机械传动与自动化</p></div>
+                <div class="mod-item">
+                    <i class="fas fa-train"></i>
+                    <h4>机械动力工业长路</h4>
+                    <p>工业长路扩展模组</p>
+                </div>
+                <div class="mod-item"><i class="fas fa-microchip"></i><h4>机械动力：附加 (Create: Additions)</h4><p>更多机械零件</p></div>
+                <div class="mod-item"><i class="fas fa-cogs"></i><h4>机械动力：工业 (Create: Industry)</h4><p>工业级自动化扩展</p></div>
+
+                <!-- 沉浸工程系列 -->
+                <div class="mod-item"><i class="fas fa-hard-hat"></i><h4>沉浸工程 (Immersive Engineering)</h4><p>真实电力与多方块工业</p></div>
+                
+
+                <!-- 辅助与工具 -->
+                <div class="mod-item"><i class="fas fa-book"></i><h4>JEI 物品管理器</h4><p>合成表查询</p></div>
+                <div class="mod-item"><i class="fas fa-map"></i><h4>Xaero 小地图</h4><p>清晰导航与坐标</p></div>
+                <div class="mod-item"><i class="fas fa-undo-alt"></i><h4>FTB Essentials</h4><p>基础命令（/home, /spawn 等）</p></div>
+                <div class="mod-item"><i class="fas fa-cubes"></i><h4>更多箱子 (Iron Chests)</h4><p>升级版储物</p></div>
+                <div class="mod-item"><i class="fas fa-tachometer-alt"></i><h4>性能优化 (Performant)</h4><p>服务器性能提升</p></div>
+
+                <!-- 装饰与扩展（已去掉“装饰工坊”和“匠魂”） -->
+                <div class="mod-item"><i class="fas fa-dragon"></i><h4>暮色森林 (Twilight Forest)</h4><p>新维度冒险</p></div>
+            
+            <div class="info-section highlight">
+                <p>📌 以上为服务器全部模组，如果你发现缺少某个模组，请联系腐竹 pisa12 确认。</p>
+            </div>
+        </div>
+
+        <!-- ===== 规则公告 ===== -->
+        <div id="page-rules" class="page-content info-page">
+            <h2 class="page-title"><i class="fas fa-gavel"></i> 服务器规则</h2>
+            <div class="info-section"><p>为了维护良好的游戏环境，请所有玩家遵守以下规则。违反者将视情节给予警告、封禁等处罚。</p></div>
+            <div class="info-section">
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-ban"></i></span><div class="rule-content"><h4>禁止恶意破坏</h4><p>未经允许拆除、盗窃他人建筑或物品。</p></div></div>
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-gun"></i></span><div class="rule-content"><h4>禁止恶意PVP</h4><p>非约定情况下的攻击或骚扰行为。</p></div></div>
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-bug"></i></span><div class="rule-content"><h4>禁止作弊 / 利用漏洞</h4><p>使用外挂、资源包透视、刷物品等漏洞。</p></div></div>
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-comment-slash"></i></span><div class="rule-content"><h4>禁止恶意刷屏 / 辱骂</h4><p>保持文明交流，尊重他人。</p></div></div>
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-tower-cell"></i></span><div class="rule-content"><h4>禁止恶意高频红石 / 卡服行为</h4><p>避免建造大规模高频红石机器或使用可能造成服务器卡顿的设施。</p></div></div>
+                <div class="rule-item"><span class="rule-icon"><i class="fas fa-flag"></i></span><div class="rule-content"><h4>尊重领地与建筑</h4><p>未经领地主人许可，不得进入或占用他人领地。</p></div></div>
+            </div>
+            <div class="info-section highlight"><p><i class="fas fa-gavel"></i> 规则解释权归腐竹所有，若有疑问可联系管理员。</p></div>
+        </div>
+
+        <!-- ===== 游戏指南 ===== -->
+        <div id="page-guide" class="page-content info-page">
+            <h2 class="page-title"><i class="fas fa-book"></i> 游戏指南</h2>
+            <div class="info-section">
+                <h3><i class="fas fa-rocket"></i> 新手入门</h3>
+                <ul>
+                    <li><strong>第一步：进入服务器</strong> — 使用地址 <code>play.simpfun.cn:31409</code> 加入。</li>
+                    <li><strong>第二步：选择据点</strong> — 在主城传送至野外，寻找合适地点建立你的第一个基地。</li>
+                    <li><strong>第三步：收集资源</strong> — 初期建议砍树、挖矿，制作基础工具。</li>
+                    <li><strong>第四步：迈向工业</strong> — 利用机械动力建造简易的矿石处理线，逐步升级至沉浸工程的大型设备。</li>
+                </ul>
+            </div>
+            <div class="info-section">
+                <h3><i class="fas fa-tools"></i> 工业进阶路线</h3>
+                <ul>
+                    <li><strong>机械动力阶段</strong> — 建造水车/风车 → 传动杆 → 粉碎轮 → 自动合成。</li>
+                    <li><strong>沉浸工程阶段</strong> — 建造柴油发电机 → 多方块粉碎机 → 高炉 → 电弧炉。</li>
+                    <li><strong>两大体系融合</strong> — 使用机械动力的旋转力驱动沉浸工程的发电机，实现能源互补。</li>
+                </ul>
+            </div>
+            <div class="info-section">
+                <h3><i class="fas fa-users"></i> 社区建议</h3>
+                <ul>
+                    <li>加入QQ群 <code>142193252</code> 与其他玩家交流心得。</li>
+                    <li>在游戏内使用 <code>/land</code> 命令圈地保护你的建筑。</li>
+                    <li>遇到问题可在群内 @管理员 或使用游戏内聊天。</li>
+                </ul>
+            </div>
+            <div class="info-section highlight"><p><i class="fas fa-lightbulb"></i> 祝你在 O4 服务器度过愉快的工业时光！</p></div>
+        </div>
+
+        <!-- ===== 管理员列表（已添加举报和申请按钮） ===== -->
+        <div id="page-staff" class="page-content info-page">
+            <h2 class="page-title"><i class="fas fa-user-shield"></i> 管理团队</h2>
+            <div class="info-section">
+                <p>以下是 O4 服务器的核心管理成员，如有问题可随时联系他们。</p>
+            </div>
+            <div class="staff-grid">
+                <div class="staff-card">
+                    <div class="staff-avatar"><i class="fas fa-crown"></i></div>
+                    <div class="staff-info">
+                        <h4>pisa12</h4>
+                        <span class="staff-role">腐竹 / 创始人</span>
+                        <p>负责服务器整体运营、技术维护与决策。</p>
+                    </div>
+                </div>
+                <div class="staff-card">
+                    <div class="staff-avatar"><i class="fas fa-user-clock"></i></div>
+                    <div class="staff-info">
+                        <h4>副腐竹（待定）</h4>
+                        <span class="staff-role">——</span>
+                        <p>招募中，欢迎有能力、有责任心的玩家申请。</p>
+                    </div>
+                </div>
+                <div class="staff-card">
+                    <div class="staff-avatar"><i class="fas fa-user-clock"></i></div>
+                    <div class="staff-info">
+                        <h4>管理员（待定）</h4>
+                        <span class="staff-role">——</span>
+                        <p>招募中，欢迎有能力、有责任心的玩家申请。</p>
+                    </div>
+                </div>
+                <div class="staff-card">
+                    <div class="staff-avatar"><i class="fas fa-user-clock"></i></div>
+                    <div class="staff-info">
+                        <h4>建筑师（待定）</h4>
+                        <span class="staff-role">——</span>
+                        <p>招募中，欢迎有能力、有责任心的玩家申请。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 举报 & 申请按钮（链接至问卷星） ===== -->
+            <div class="staff-actions">
+                <a href="https://www.wjx.top/vm/OtstuXl.aspx# " class="btn-report" target="_blank">
+                    <i class="fas fa-exclamation-triangle"></i> 举报违规
+                </a>
+                <a href="https://v.wjx.cn/vm/Q7EBYm0.aspx# " class="btn-apply" target="_blank">
+                    <i class="fas fa-pen-fancy"></i> 申请职位
+                </a>
+            </div>
+            <div class="info-section highlight">
+                <p>📢 如需举报玩家或申请管理职位，请点击上方按钮跳转问卷星表单。</p>
+            </div>
+        </div>
+
+        <!-- ===== 命令大全（仅玩家命令） ===== -->
+        <div id="page-commands" class="page-content info-page">
+            <h2 class="page-title"><i class="fas fa-terminal"></i> 命令大全</h2>
+            <div class="info-section">
+                <p>以下是 O4 服务器常用的玩家命令，帮助你更好地探索和游玩。OP 管理命令不在公开页面显示，以确保服务器安全。</p>
+            </div>
+            <div class="commands-section">
+                <h3><i class="fas fa-users"></i> 玩家命令</h3>
+                <div class="command-grid">
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-home"></i></div>
+                        <div class="cmd-body">
+                            <code>/sethome</code>
+                            <span class="cmd-desc">设置个人传送点</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-home"></i></div>
+                        <div class="cmd-body">
+                            <code>/home</code>
+                            <span class="cmd-desc">传送至你的家</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-map-pin"></i></div>
+                        <div class="cmd-body">
+                            <code>/spawn</code>
+                            <span class="cmd-desc">传送至主城</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-people-arrows"></i></div>
+                        <div class="cmd-body">
+                            <code>/tpa &lt;玩家&gt;</code>
+                            <span class="cmd-desc">向玩家发送传送请求</span>
+                            <span class="cmd-example">示例：<code>/tpa Steve</code></span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-check"></i></div>
+                        <div class="cmd-body">
+                            <code>/tpaccept</code>
+                            <span class="cmd-desc">接受传送请求</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-times"></i></div>
+                        <div class="cmd-body">
+                            <code>/tpdeny</code>
+                            <span class="cmd-desc">拒绝传送请求</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-flag"></i></div>
+                        <div class="cmd-body">
+                            <code>/land</code>
+                            <span class="cmd-desc">打开领地管理界面（需插件支持）</span>
+                        </div>
+                    </div>
+                    <div class="command-card">
+                        <div class="cmd-icon"><i class="fas fa-question-circle"></i></div>
+                        <div class="cmd-body">
+                            <code>/help</code>
+                            <span class="cmd-desc">查看可用命令列表</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="info-section highlight">
+                <p>💡 提示：如需管理命令，请通过 QQ 群联系腐竹 pisa12 获取帮助。</p>
+            </div>
+        </div>
+
+        <!-- ===== 底部 ===== -->
+        <div class="footer">
+            <div class="footer-left">
+                <i class="fas fa-cog fa-spin"></i> 齿轮转动，工业不息 · O4 服务器 <i class="fas fa-cog fa-spin"></i>
+            </div>
+            <div class="footer-right">
+                <span class="core-pulse"></span> 动力核心 v2.7
+            </div>
+            <div class="update-time">© 2026 O4 Server</div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 下拉菜单交互（纯点击） =====
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('dropdownToggle');
+            const menu = document.getElementById('dropdownMenu');
+            const icon = toggle.querySelector('i.fa-chevron-down');
+
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isOpen = menu.classList.toggle('open');
+                icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+                    menu.classList.remove('open');
+                    icon.style.transform = 'rotate(0deg)';
+                }
+            });
+        });
+
+        // ===== 页面切换 =====
+        (function() {
+            const pages = {
+                home: document.getElementById('page-home'),
+                intro: document.getElementById('page-intro'),
+                mods: document.getElementById('page-mods'),
+                rules: document.getElementById('page-rules'),
+                guide: document.getElementById('page-guide'),
+                staff: document.getElementById('page-staff'),
+                commands: document.getElementById('page-commands')
+            };
+
+            function switchPage(pageId) {
+                Object.values(pages).forEach(el => el.classList.remove('active'));
+                if (pages[pageId]) {
+                    pages[pageId].classList.add('active');
+                    document.getElementById('dropdownMenu').classList.remove('open');
+                    document.querySelector('#dropdownToggle i.fa-chevron-down').style.transform = 'rotate(0deg)';
+                    history.pushState(null, '', '#' + pageId);
+                }
+            }
+
+            document.getElementById('nav-home').addEventListener('click', function(e) {
+                e.preventDefault();
+                switchPage('home');
+            });
+
+            document.getElementById('dropdownMenu').addEventListener('click', function(e) {
+                const link = e.target.closest('a[data-page]');
+                if (link) {
+                    e.preventDefault();
+                    const page = link.getAttribute('data-page');
+                    switchPage(page);
+                }
+            });
+
+            window.addEventListener('hashchange', function() {
+                const hash = window.location.hash.replace('#', '');
+                if (hash && pages[hash]) {
+                    switchPage(hash);
+                } else {
+                    switchPage('home');
+                }
+            });
+
+            const initHash = window.location.hash.replace('#', '');
+            if (initHash && pages[initHash]) {
+                switchPage(initHash);
+            } else {
+                switchPage('home');
+            }
+        })();
+
+        // ===== 二维码模态框控制 =====
+        function openQrModal() {
+            document.getElementById('qrModal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.remove('open');
+            document.body.style.overflow = 'auto';
+        }
+        // 按 ESC 键关闭
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeQrModal();
+        });
+    </script>
+</body>
+</html>
