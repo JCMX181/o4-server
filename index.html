@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>静默余响 · 内测 V6</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800;14..32,900&family=JetBrains+Mono:wght@400;600&family=Special+Elite&display=swap" rel="stylesheet" />
+
+    <style>
+        /* ============================================================
+                   0. 设计令牌
+                   ============================================================ */
+        :root {
+            --bg-deep: #090b0f;
+            --bg-base: #0e1016;
+            --bg-soft: #15181f;
+            --bg-mute: #1c2028;
+            --bg-elevated: #232832;
+            --bg-card: rgba(255, 255, 255, 0.025);
+
+            --text-primary: #eff2f7;
+            --text-secondary: #aabbcc;
+            --text-tertiary: #6a7a8a;
+            --text-dim: #3a4a5a;
+
+            --brand: #00d4ff;
+            --brand-glow: rgba(0, 212, 255, 0.08);
+            --brand-soft: rgba(0, 212, 255, 0.04);
+
+            --danger: #ff1744;
+            --danger-glow: rgba(255, 23, 68, 0.08);
+            --danger-soft: rgba(255, 23, 68, 0.03);
+
+            --border-subtle: rgba(255, 255, 255, 0.03);
+            --border-soft: rgba(255, 255, 255, 0.05);
+            --border-medium: rgba(255, 255, 255, 0.08);
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.6);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.7);
+            --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.8);
+            --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.9);
+            --shadow-rgba: 0 24px 64px rgba(170, 241, 122, 0.9);
+
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-display: 'Special Elite', 'Inter', monospace;
+
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-smooth: 0.5s;
+            --transition-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* ============================================================
+                   1. 重置 & 基础
+                   ============================================================ */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-weight: 400;
+            line-height: 1.7;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ============================================================
+                   2. 粒子背景
+                   ============================================================ */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* ============================================================
+                   3. 扫描线
+                   ============================================================ */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            background: repeating-linear-gradient(0deg,
+                    rgba(0, 0, 0, 0.15) 0px,
+                    rgba(255, 255, 255, 0.004) 1px,
+                    transparent 2px);
+            animation: scanMove 0.15s infinite linear;
+            opacity: 0.3;
+        }
+
+        @keyframes scanMove {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 0 2px;
+            }
+        }
+
+        /* ============================================================
+                   4. 滚动条 — 精致细条
+                   ============================================================ */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-deep);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-tertiary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        /* ============================================================
+                   5. 导航栏 — 固定在顶部
+                   ============================================================ */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(9, 11, 15, 0.7);
+            backdrop-filter: blur(16px) saturate(1.2);
+            -webkit-backdrop-filter: blur(16px) saturate(1.2);
+            border-bottom: 1px solid var(--border-subtle);
+            transition: background var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .navbar .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0;
+            max-width: 1120px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            flex-shrink: 0;
+        }
+
+        .logo-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: var(--bg-soft);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-soft);
+            font-size: 14px;
+            color: var(--brand);
+            font-weight: 600;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .logo:hover .logo-mark {
+            border-color: var(--brand);
+            box-shadow: 0 0 30px var(--brand-glow);
+        }
+
+        .logo span {
+            color: var(--danger);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+
+        .nav-links>a,
+        .nav-dropdown>button,
+        .nav-link-btn {
+            color: var(--text-tertiary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .nav-links>a::after,
+        .nav-dropdown>button::after,
+        .nav-link-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%) scaleX(0);
+            width: 60%;
+            height: 1px;
+            background: var(--brand);
+            transition: transform var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .nav-links>a:hover::after,
+        .nav-dropdown>button:hover::after,
+        .nav-link-btn:hover::after {
+            transform: translateX(-50%) scaleX(1);
+        }
+
+        .nav-links>a:hover,
+        .nav-dropdown>button:hover,
+        .nav-link-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links .highlight {
+            color: var(--text-primary);
+            background: var(--brand-soft);
+            border: 1px solid var(--border-soft);
+        }
+
+        .nav-links .highlight::after {
+            display: none;
+        }
+
+        .nav-links .highlight:hover {
+            background: var(--brand);
+            color: var(--bg-deep);
+            border-color: var(--brand);
+            box-shadow: 0 0 30px var(--brand-glow);
+        }
+
+        .nav-dropdown {
+            position: relative;
+        }
+
+        .nav-dropdown>button .arrow {
+            font-size: 8px;
+            transition: transform var(--duration-smooth) var(--ease-out-expo);
+            opacity: 0.5;
+            margin-left: 2px;
+        }
+
+        .nav-dropdown.open>button .arrow {
+            transform: rotate(180deg);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            min-width: 190px;
+            background: var(--bg-soft);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .nav-dropdown.open .dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 13px;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .dropdown-menu a:hover {
+            background: var(--bg-mute);
+            color: var(--text-primary);
+        }
+
+        .dropdown-menu a .icon {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            margin: 4px 10px;
+            background: var(--border-subtle);
+        }
+
+        /* ---- 版本状态指示器 ---- */
+        .version-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+            padding: 4px 14px 4px 12px;
+            border-radius: 20px;
+            background: var(--bg-soft);
+            border: 1px solid var(--border-subtle);
+            margin-left: 8px;
+        }
+
+        .version-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--danger);
+            animation: pulseDot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseDot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(0.7);
+            }
+        }
+
+        /* ============================================================
+                   6. 右侧导航点 (火绒风格) — 指示当前视口
+                   ============================================================ */
+        .nav-dots {
+            position: fixed;
+            right: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 99;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .nav-dots li {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: all 0.4s var(--ease-out-expo);
+            position: relative;
+        }
+
+        .nav-dots li.active {
+            background: var(--brand);
+            border-color: var(--brand);
+            box-shadow: 0 0 24px var(--brand-glow);
+            transform: scale(1.25);
+        }
+
+        .nav-dots li:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.15);
+        }
+
+        .nav-dots li.active:hover {
+            background: var(--brand);
+            transform: scale(1.25);
+        }
+
+        .nav-dots li .tooltip {
+            position: absolute;
+            right: 22px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg-soft);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-soft);
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--ease-out-expo);
+            font-family: var(--font-sans);
+            letter-spacing: 0.5px;
+        }
+
+        .nav-dots li:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) translateX(-4px);
+        }
+
+        /* ============================================================
+                   7. 全屏区块 — 自然滚动
+                   ============================================================ */
+        .fullpage-section {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 0 40px;
+            overflow: hidden;
+            background: var(--bg-deep);
+            transition: background 0.3s;
+        }
+
+        .fullpage-section:nth-child(even) {
+            background: var(--bg-base);
+        }
+
+        .fullpage-section .container {
+            width: 100%;
+            max-width: 1120px;
+            padding: 0 24px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ============================================================
+                   8. Hero 区域 (第1屏)
+                   ============================================================ */
+        .hero {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-glow {
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.03) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
+            animation: glowPulse 10s ease-in-out infinite alternate;
+        }
+
+        .hero-glow-2 {
+            position: absolute;
+            bottom: -20%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 23, 68, 0.02) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            animation: glowPulse 12s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes glowPulse {
+            0% {
+                opacity: 0.5;
+                transform: scale(1) translate(0, 0);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1.1) translate(20px, -20px);
+            }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-text .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--danger);
+            background: var(--danger-soft);
+            padding: 4px 16px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 23, 68, 0.06);
+            margin-bottom: 24px;
+            font-family: var(--font-mono);
+        }
+
+        .hero-text h1 {
+            font-size: clamp(2.8rem, 7vw, 4.4rem);
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: -0.035em;
+            margin-bottom: 20px;
+            font-family: var(--font-display);
+            color: var(--text-primary);
+        }
+
+        .hero-text h1 em {
+            font-style: normal;
+            background: linear-gradient(135deg, var(--brand), var(--danger));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-text .lead {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 480px;
+            line-height: 1.8;
+            margin-bottom: 36px;
+            border-left: 2px solid var(--text-tertiary);
+            padding-left: 20px;
+            font-weight: 300;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 32px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            cursor: pointer;
+            border: none;
+            font-family: var(--font-sans);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent);
+            opacity: 0;
+            transition: opacity var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .btn:hover::after {
+            opacity: 1;
+        }
+
+        .btn-brand {
+            background: var(--brand);
+            color: var(--bg-deep);
+            box-shadow: 0 4px 20px var(--brand-glow);
+        }
+        .btn-brand:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 40px var(--brand-glow);
+            background: #00e0ff;
+        }
+
+        .btn-green {
+            background: #2ecc71;
+            color: #1a1a1a;
+            transition: transform 0.3s;
+        }
+        .btn-green:hover {
+         transform: translateY(-2px);
+         }
+
+          .btn-yellow {
+            background: #d6eb1c;
+            color: #1a1a1a;
+            transition: transform 0.3s;
+        }
+        .btn-yellow:hover {
+         transform: translateY(-2px);
+         }
+
+        .btn-danger {
+            background: var(--danger);
+            color: var(--bg-deep);
+            box-shadow: 0 4px 20px var(--danger-glow);
+        }
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 40px var(--danger-glow);
+            background: #ff2255;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-soft);
+        }
+        .btn-ghost:hover {
+            background: var(--bg-soft);
+            color: var(--text-primary);
+            border-color: var(--text-tertiary);
+            transform: translateY(-2px);
+        }
+
+        .hero-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .hero-visual .orb {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 380px;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 212, 255, 0.04), rgba(9, 11, 15, 0.95) 70%);
+            border-radius: 50%;
+            border: 1px solid var(--border-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 88px;
+            color: var(--text-tertiary);
+            user-select: none;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .hero-visual .orb::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            padding: 1px;
+            background: conic-gradient(from 0deg, transparent, var(--brand), transparent, var(--danger), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0.2;
+            animation: spin 12s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hero-visual .orb .label {
+            position: absolute;
+            bottom: 24px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            background: rgba(9, 11, 15, 0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            padding: 4px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+        }
+
+        /* ============================================================
+                   9. 通用 Section 样式
+                   ============================================================ */
+        .section-header {
+            margin-bottom: 48px;
+        }
+
+        .section-header .overline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--brand);
+            margin-bottom: 8px;
+            font-family: var(--font-mono);
+        }
+
+        .section-header .overline.danger {
+            color: var(--danger);
+        }
+
+        .section-header h2 {
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+            font-family: var(--font-display);
+            color: var(--text-primary);
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 560px;
+            line-height: 1.7;
+            font-weight: 300;
+        }
+
+        /* ============================================================
+                   10. 核心机制 (第2屏)
+                   ============================================================ */
+        .mechanism-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .mechanism-card {
+            background: var(--bg-soft);
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            border: 1px solid var(--border-subtle);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mechanism-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--brand), transparent);
+            opacity: 0.4;
+            transition: opacity var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .mechanism-card.danger::before {
+            background: linear-gradient(90deg, var(--danger), transparent);
+        }
+
+        .mechanism-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .mechanism-card .card-icon {
+            font-size: 28px;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .mechanism-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-family: var(--font-display);
+        }
+
+        .mechanism-card .tag {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--brand);
+            background: var(--brand-soft);
+            padding: 2px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+        }
+
+        .mechanism-card.danger .tag {
+            color: var(--danger);
+            background: var(--danger-soft);
+        }
+
+        .mechanism-card .card-sub {
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            font-weight: 300;
+        }
+
+        .mechanism-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .mechanism-card ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 10px;
+            align-items: baseline;
+            font-weight: 300;
+        }
+
+        .mechanism-card ul li:last-child {
+            border-bottom: none;
+        }
+
+        .mechanism-card ul li strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .mechanism-card ul li .bullet {
+            color: var(--text-tertiary);
+            font-weight: 300;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+                   11. 生物图鉴 (第3屏)
+                   ============================================================ */
+        .bestiary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .bestiary-item {
+            background: var(--bg-soft);
+            padding: 28px 20px 24px;
+            border-radius: var(--radius-md);
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            cursor: default;
+        }
+
+        .bestiary-item:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: var(--shadow-md);
+        }
+
+        .bestiary-item .icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 10px;
+            filter: grayscale(0.2);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+        }
+
+        .bestiary-item:hover .icon {
+            filter: grayscale(0);
+            transform: scale(1.08) rotate(-3deg);
+        }
+
+        .bestiary-item h4 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-family: var(--font-display);
+        }
+
+        .bestiary-item p {
+            font-size: 0.82rem;
+            color: var(--text-tertiary);
+            line-height: 1.6;
+            font-weight: 300;
+        }
+
+        /* ============================================================
+                   12. 物品与方块 (第4屏)
+                   ============================================================ */
+        .items-section .items-group {
+            margin-bottom: 32px;
+        }
+
+        .items-section .items-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .items-group-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            padding: 4px 16px 4px 12px;
+            border-radius: 20px;
+            background: var(--bg-soft);
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+        }
+
+        .items-group-label .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--brand);
+        }
+
+        .items-group-label.danger .dot {
+            background: var(--danger);
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+            gap: 14px;
+        }
+
+        .item-card {
+            background: var(--bg-soft);
+            padding: 18px 14px 16px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            cursor: default;
+        }
+
+        .item-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-sm);
+            background: var(--bg-mute);
+        }
+
+        .item-card .name {
+            color: var(--brand);
+            font-weight: 600;
+            font-size: 0.88rem;
+        }
+
+        .item-card .desc {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            line-height: 1.5;
+            font-weight: 300;
+        }
+
+        /* ============================================================
+                   13. 探索与进度 (第5屏)
+                   ============================================================ */
+        .progress-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+        }
+
+        .progress-block h4 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-display);
+        }
+
+        .progress-block ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .progress-block ul li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            display: flex;
+            gap: 10px;
+            align-items: baseline;
+            font-weight: 300;
+        }
+
+        .progress-block ul li:last-child {
+            border-bottom: none;
+        }
+
+        .progress-block ul li strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .progress-block ul li .bullet {
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .achievement-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .achievement-badge {
+            background: var(--bg-soft);
+            padding: 5px 16px 5px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-size: 0.78rem;
+            color: var(--text-tertiary);
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 300;
+            font-family: var(--font-mono);
+            cursor: default;
+        }
+
+        .achievement-badge:hover {
+            border-color: var(--border-medium);
+            color: var(--text-primary);
+            background: var(--bg-mute);
+            transform: translateY(-2px);
+        }
+
+        .achievement-badge strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .achievement-badge .emoji {
+            font-size: 13px;
+        }
+
+        /* ============================================================
+                   14. 底部细节 & 页脚 (第5屏内)
+                   ============================================================ */
+        .meta-bar {
+            padding: 20px 0 12px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            margin-top: 24px;
+        }
+
+        .meta-bar span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .footer {
+            padding: 12px 0 20px;
+            text-align: center;
+            border-top: 1px solid var(--border-subtle);
+            background: transparent;
+        }
+
+        .footer p {
+            color: var(--text-tertiary);
+            font-size: 0.82rem;
+            font-weight: 300;
+        }
+
+        .footer p:last-child {
+            margin-top: 4px;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+        }
+
+        .divider-wave {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 4px 0 8px;
+            color: var(--text-dim);
+            font-size: 10px;
+            letter-spacing: 4px;
+            user-select: none;
+            font-family: var(--font-mono);
+        }
+
+        .divider-wave span {
+            opacity: 0.2;
+        }
+
+        /* ============================================================
+                   15. 内容模态框
+                   ============================================================ */
+        .content-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            padding: 24px;
+        }
+
+        .content-modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .content-modal-overlay.open .content-modal-box {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .content-modal-box {
+            background: var(--bg-soft);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            padding: 40px 40px 36px;
+            max-width: 680px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            transform: scale(0.95) translateY(20px);
+            opacity: 0;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            position: relative;
+        }
+
+        .content-modal-box .modal-close {
+            position: sticky;
+            float: right;
+            top: 0;
+            z-index: 1;
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color var(--duration-smooth) var(--ease-out-expo);
+            line-height: 1;
+            padding: 4px;
+        }
+
+        .content-modal-box .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .content-modal-box .content-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-family: var(--font-display);
+        }
+
+        .content-modal-box .content-title .badge {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--brand);
+            background: var(--brand-soft);
+            padding: 2px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+        }
+
+        .content-modal-box .content-meta {
+            color: var(--text-tertiary);
+            font-size: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            font-family: var(--font-mono);
+        }
+
+        .content-modal-box .content-body {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.8;
+            font-weight: 300;
+        }
+
+        .content-body h3 {
+            color: var(--text-primary);
+            font-size: 17px;
+            font-weight: 700;
+            margin-top: 24px;
+            margin-bottom: 8px;
+            font-family: var(--font-display);
+        }
+
+        .content-body h4 {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 16px;
+            margin-bottom: 4px;
+        }
+
+        .content-body p {
+            margin-bottom: 12px;
+        }
+
+        .content-body ul,
+        .content-body ol {
+            padding-left: 24px;
+            margin-bottom: 12px;
+        }
+
+        .content-body li {
+            margin-bottom: 4px;
+        }
+
+        .content-body code {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            background: var(--bg-deep);
+            padding: 1px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+            color: var(--brand);
+        }
+
+        .content-body pre {
+            background: var(--bg-deep);
+            padding: 16px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            overflow-x: auto;
+            margin: 12px 0;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .content-body .version-tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 14px;
+            border-radius: 20px;
+            margin-right: 6px;
+            font-family: var(--font-mono);
+        }
+
+        .content-body .version-tag.stable {
+            background: rgba(0, 212, 255, 0.08);
+            color: var(--brand);
+        }
+
+        .content-body .version-tag.beta {
+            background: rgba(255, 23, 68, 0.08);
+            color: var(--danger);
+        }
+
+        .content-body .version-tag.legacy {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-tertiary);
+        }
+
+        .content-body .changelog-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .content-body .changelog-item:last-child {
+            border-bottom: none;
+        }
+
+        .content-body .changelog-item .date {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        .content-body .changelog-item .changes {
+            margin-top: 4px;
+            padding-left: 20px;
+        }
+
+        .content-body .team-member {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .content-body .team-member:last-child {
+            border-bottom: none;
+        }
+
+        .content-body .team-member .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-mute);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex-shrink: 0;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .content-body .team-member .info .name {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .content-body .team-member .info .role {
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        /* ============================================================
+                   16. 联系作者模态框 — 滑动轮播
+                   ============================================================ */
+        .contact-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            padding: 24px;
+        }
+
+        .contact-modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .contact-modal-overlay.open .contact-modal-box {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .contact-modal-box {
+            background: var(--bg-soft);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-xl);
+            padding: 44px 48px 40px;
+            max-width: 520px;
+            width: 100%;
+            max-height: 90vh;
+            box-shadow: var(--shadow-xl), 0 0 80px rgba(0, 0, 0, 0.4);
+            transform: scale(0.92) translateY(20px);
+            opacity: 0;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .contact-modal-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--brand), var(--danger), var(--brand));
+            opacity: 0.3;
+            animation: linePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes linePulse {
+            0%,
+            100% {
+                opacity: 0.2;
+                transform: scaleX(0.8);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scaleX(1);
+            }
+        }
+
+        .contact-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color var(--duration-smooth) var(--ease-out-expo);
+            line-height: 1;
+            padding: 4px;
+            z-index: 10;
+        }
+
+        .contact-modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .contact-modal-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .contact-modal-header .icon-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--brand);
+            background: var(--brand-soft);
+            padding: 4px 18px 4px 14px;
+            border-radius: 30px;
+            border: 1px solid var(--border-soft);
+            font-family: var(--font-mono);
+            margin-bottom: 12px;
+        }
+
+        .contact-modal-header h2 {
+            font-size: 26px;
+            font-weight: 800;
+            font-family: var(--font-display);
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .contact-modal-header p {
+            color: var(--text-tertiary);
+            font-size: 14px;
+            font-weight: 300;
+            margin-top: 4px;
+        }
+
+        .carousel-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            background: var(--bg-mute);
+            border: 1px solid var(--border-soft);
+            min-height: 190px;
+            margin-bottom: 20px;
+        }
+
+        .carousel-track {
+            display: flex;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            padding: 28px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .carousel-slide .contact-icon {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .carousel-slide .contact-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            margin-bottom: 2px;
+        }
+
+        .carousel-slide .contact-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+            background: var(--bg-deep);
+            padding: 6px 24px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            margin-top: 4px;
+            word-break: break-all;
+            display: inline-block;
+        }
+
+        .carousel-slide .contact-hint {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-tertiary);
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 16px;
+            border-radius: 20px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .carousel-slide .contact-hint .arrow {
+            color: var(--brand);
+            animation: hintPulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes hintPulse {
+            0%,
+            100% {
+                opacity: 0.4;
+                transform: translateX(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translateX(4px);
+            }
+        }
+
+        .carousel-slide .copy-btn {
+            margin-top: 14px;
+            padding: 6px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-soft);
+            background: transparent;
+            color: var(--text-tertiary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            font-family: var(--font-sans);
+            font-weight: 500;
+        }
+
+        .carousel-slide .copy-btn:hover {
+            background: var(--bg-soft);
+            color: var(--text-primary);
+            border-color: var(--border-medium);
+        }
+
+        .carousel-slide .copy-btn.copied {
+            background: var(--brand-soft);
+            border-color: var(--brand);
+            color: var(--brand);
+        }
+
+        .carousel-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            border: none;
+            cursor: pointer;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            padding: 0;
+        }
+
+        .carousel-dot.active {
+            background: var(--brand);
+            box-shadow: 0 0 20px var(--brand-glow);
+            width: 24px;
+            border-radius: 4px;
+        }
+
+        .carousel-dot:hover:not(.active) {
+            background: var(--text-tertiary);
+        }
+
+        .carousel-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .carousel-btn {
+            padding: 8px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-soft);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--duration-smooth) var(--ease-out-expo);
+            font-family: var(--font-sans);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .carousel-btn:hover {
+            background: var(--bg-mute);
+            color: var(--text-primary);
+            border-color: var(--border-medium);
+        }
+
+        .carousel-btn.primary {
+            background: var(--brand-soft);
+            border-color: var(--brand);
+            color: var(--brand);
+        }
+
+        .carousel-btn.primary:hover {
+            background: var(--brand);
+            color: var(--bg-deep);
+        }
+
+        .contact-footer-note {
+            text-align: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+        }
+
+        .contact-footer-note strong {
+            color: var(--brand);
+            font-weight: 600;
+        }
+
+        /* ============================================================
+                   17. 滚动触发展开动画 (Intersection Observer)
+                   ============================================================ */
+        .animate-in {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .animate-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .animate-in-d1 {
+            transition-delay: 0.05s;
+        }
+        .animate-in-d2 {
+            transition-delay: 0.12s;
+        }
+        .animate-in-d3 {
+            transition-delay: 0.20s;
+        }
+        .animate-in-d4 {
+            transition-delay: 0.28s;
+        }
+        .animate-in-d5 {
+            transition-delay: 0.36s;
+        }
+
+        /* ============================================================
+                   18. 响应式
+                   ============================================================ */
+        @media (max-width: 900px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .hero-visual .orb {
+                max-width: 260px;
+            }
+
+            .mechanism-grid,
+            .progress-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .fullpage-section {
+                padding: 70px 0 30px;
+                min-height: auto;
+            }
+
+            .nav-dots {
+                right: 14px;
+                gap: 10px;
+            }
+
+            .nav-dots li {
+                width: 10px;
+                height: 10px;
+            }
+
+            .contact-modal-box {
+                padding: 32px 24px 28px;
+                max-width: 95%;
+            }
+
+            .nav-dots li .tooltip {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                height: auto;
+                min-height: 56px;
+                padding: 10px 16px;
+                flex-wrap: wrap;
+            }
+
+            .navbar .container {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 2px;
+                order: 3;
+                width: 100%;
+                padding-top: 8px;
+                border-top: 1px solid var(--border-subtle);
+            }
+
+            .nav-links>a,
+            .nav-dropdown>button,
+            .nav-link-btn {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+
+            .nav-links>a::after,
+            .nav-dropdown>button::after,
+            .nav-link-btn::after {
+                display: none;
+            }
+
+            .dropdown-menu {
+                position: static;
+                transform: none !important;
+                box-shadow: none;
+                border: none;
+                background: var(--bg-base);
+                padding: 4px 0 4px 16px;
+                border-radius: 0;
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+                display: none;
+                min-width: unset;
+                width: 100%;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+
+            .nav-dropdown.open .dropdown-menu,
+            .nav-dropdown:hover .dropdown-menu {
+                display: block;
+                transform: none !important;
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .dropdown-menu a {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+
+            .nav-dropdown .dropdown-menu {
+                display: none;
+            }
+            .nav-dropdown.open .dropdown-menu {
+                display: block;
+            }
+
+            .fullpage-section {
+                padding: 60px 0 20px;
+                min-height: auto;
+            }
+
+            .section-header {
+                margin-bottom: 28px;
+            }
+
+            .bestiary-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+            }
+
+            .items-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .progress-grid {
+                gap: 32px;
+            }
+
+            .meta-bar {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .hero-visual .orb {
+                max-width: 160px;
+                font-size: 48px;
+            }
+            .hero-visual .orb .label {
+                font-size: 8px;
+                padding: 2px 12px;
+                bottom: 12px;
+            }
+
+            .contact-modal-box {
+                padding: 24px 16px 20px;
+            }
+
+            .carousel-slide {
+                padding: 20px 16px;
+            }
+
+            .carousel-slide .contact-value {
+                font-size: 16px;
+                padding: 4px 12px;
+            }
+
+            .contact-modal-header h2 {
+                font-size: 20px;
+            }
+
+            .nav-dots {
+                right: 10px;
+                gap: 8px;
+            }
+
+            .nav-dots li {
+                width: 8px;
+                height: 8px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .bestiary-grid,
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links>a,
+            .nav-dropdown>button,
+            .nav-link-btn {
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            .hero-text h1 {
+                font-size: 2rem;
+            }
+
+            .fullpage-section {
+                padding: 50px 0 16px;
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ====== 粒子 Canvas ====== -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- ====== 扫描线 ====== -->
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <!-- ====== 导航栏 ====== -->
+    <header class="navbar" role="banner">
+        <div class="container">
+            <a href="#" class="logo" aria-label="静默余响 首页">
+                <span class="logo-mark">⟡</span>
+                静默<span>余响</span>
+            </a>
+
+            <nav class="nav-links" aria-label="主导航">
+                <a href="#slide-0">首页</a>
+                <a href="#slide-1">机制</a>
+                <a href="#slide-2">生物</a>
+                <a href="#slide-3">物品</a>
+                <a href="#slide-4">进度</a>
+
+                <!-- 关于 -->
+                <div class="nav-dropdown" data-dropdown>
+                    <button type="button" aria-haspopup="true" aria-expanded="false" class="dropdown-toggle">
+                        关于 <span class="arrow">▾</span>
+                    </button>
+                    <div class="dropdown-menu" role="menu">
+                        <a href="#" role="menuitem" data-content="team"><span class="icon">👥</span> 团队介绍</a>
+                        <a href="#" role="menuitem" data-content="devlog"><span class="icon">📝</span> 开发日志</a>
+                        <a href="#" role="menuitem" data-content="changelog"><span class="icon">📋</span> 更新日志</a>
+                    </div>
+                </div>
+
+                <!-- 联系作者 -->
+                <button class="nav-link-btn" id="contactBtn" style="color:var(--brand);">
+                    ✦ 联系作者
+                </button>
+
+                <a href="#" class="highlight">支持我们</a>
+                <span class="version-indicator">
+                    <span class="version-dot"></span>
+                    V6 · 内测
+                </span>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ====== 右侧导航点 ====== -->
+    <ul class="nav-dots" id="navDots" role="navigation" aria-label="页面导航">
+        <li data-index="0" class="active">
+            <span class="tooltip">首页</span>
+        </li>
+        <li data-index="1">
+            <span class="tooltip">核心机制</span>
+        </li>
+        <li data-index="2">
+            <span class="tooltip">生物图鉴</span>
+        </li>
+        <li data-index="3">
+            <span class="tooltip">回声科技</span>
+        </li>
+        <li data-index="4">
+            <span class="tooltip">探索与进度</span>
+        </li>
+    </ul>
+
+    <!-- ====== 自然滚动区块 ====== -->
+    <!-- 第1屏: Hero -->
+    <section class="fullpage-section hero" data-index="0" id="slide-0">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="hero-glow-2" aria-hidden="true"></div>
+        <div class="container hero-content">
+            <div class="hero-text animate-in visible">
+                <div class="badge">内测版 V6 · 进行中</div>
+                <h1>深渊之下<br /><em>万物有声</em></h1>
+                <p class="lead">
+                    基岩层的极深处，<strong>静默者</strong>的实验失控了。<br />
+                    声音获得了<strong>生命</strong>与<strong>饥渴</strong>。<br />
+                    如今，<strong>残响</strong>仍在洞穴中徘徊。<br />
+                    只有被活人<strong>“听见”</strong>，它们才能侵入现实。
+                </p>
+                <div class="hero-actions">
+                    <!-- 三个按钮均绑定平滑滚动跳转 -->
+                    <a href="#slide-1" class="btn btn-brand smooth-scroll"> 直面 回响 </a>
+                    <a href="#slide-2" class="btn btn-danger smooth-scroll"> 聆听 禁忌 </a>
+                    <a href="#slide-3" class="btn btn-green smooth-scroll"> 回声 科技 </a>
+                    <a href="#slide-5" class="btn btn-yellow smooth-scroll">世界与进度</a>
+                </div>
+            </div>
+            <div class="hero-visual animate-in visible">
+                <div class="orb" aria-hidden="true">
+                    🎧
+                    <span class="label">Resonant Echoes</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 第2屏: 核心机制 -->
+    <section class="fullpage-section" data-index="1" id="slide-1">
+        <div class="container">
+            <div class="section-header animate-in">
+                <div class="overline">核心机制</div>
+                <h2>静默中生存，喧嚣中灭亡</h2>
+                <p>全员静音，是唯一的活路。</p>
+            </div>
+            <div class="mechanism-grid">
+                <div class="mechanism-card animate-in animate-in-d1">
+                    <span class="card-icon">🔇</span>
+                    <h3>静滞 <span class="tag">Silence</span></h3>
+                    <div class="card-sub">饮用寂静药水 / 静音灯范围覆盖。</div>
+                    <ul>
+                        <li><span class="bullet">—</span> <strong>效果：</strong>自身不发出任何游戏音（脚步、挖掘、受击）。</li>
+                        <li><span class="bullet">—</span> <strong>代价：</strong>屏蔽环境音——听不到身后苦力怕的引线声。</li>
+                        <li><span class="bullet">—</span> <strong>视觉：</strong>画面褪色，饱和度降低，感官剥夺。</li>
+                    </ul>
+                </div>
+                <div class="mechanism-card danger animate-in animate-in-d2">
+                    <span class="card-icon">🌀</span>
+                    <h3>残响显现 <span class="tag">Reverberant</span></h3>
+                    <div class="card-sub">16 格内存在未静音玩家。</div>
+                    <ul>
+                        <li><span class="bullet">—</span> <strong>实体化：</strong>从不可见的消散态变为有碰撞、有 AI 的实体。</li>
+                        <li><span class="bullet">—</span> <strong>攻击：</strong>近战 7 点伤害，穿透音波无视盾牌格挡。</li>
+                        <li><span class="bullet">—</span> <strong>多人博弈：</strong>只要有一人不静音，全员遭殃。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 第3屏: 生物图鉴 -->
+    <section class="fullpage-section" data-index="2" id="slide-2" style="background:var(--bg-base);">
+        <div class="container">
+            <div class="section-header animate-in">
+                <div class="overline danger">静默图鉴</div>
+                <h2>它们由纯粹回响构成</h2>
+                <p>渴望被活人听见。</p>
+            </div>
+            <div class="bestiary-grid">
+                <div class="bestiary-item animate-in animate-in-d1">
+                    <span class="icon">👤</span>
+                    <h4>残响</h4>
+                    <p>半透明人形，雪花噪点覆盖。周期性低语，未击中目标会爆发音爆。</p>
+                </div>
+                <div class="bestiary-item animate-in animate-in-d2">
+                    <span class="icon">🌑</span>
+                    <h4>低沉回响</h4>
+                    <p>巨型阴影，捶地产生音波震击，击飞并施加失明。小 Boss 级。</p>
+                </div>
+                <div class="bestiary-item animate-in animate-in-d3">
+                    <span class="icon">👂</span>
+                    <h4>幻影拾音者</h4>
+                    <p>苍白人形，巨耳无脸。被攻击会尖啸，给予周围「回响标记」。</p>
+                </div>
+                <div class="bestiary-item animate-in animate-in-d4">
+                    <span class="icon">🌀</span>
+                    <h4>虚像</h4>
+                    <p>模仿玩家或生物。接近 3 格内会尖啸消失，施加「震骇」屏幕晃动。</p>
+                </div>
+                <div class="bestiary-item animate-in animate-in-d5">
+                    <span class="icon">🤫</span>
+                    <h4>低语者</h4>
+                    <p>V5 新增 · 游走于黑暗中的低声细语者，靠近时会持续窃听玩家的声音并召唤残响。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 第4屏: 物品与方块 -->
+    <section class="fullpage-section" data-index="3" id="slide-3">
+        <div class="container items-section">
+            <div class="section-header animate-in">
+                <div class="overline">回声科技</div>
+                <h2>在深渊中建立据点</h2>
+                <p>利用回音碎片与听觉纤维。</p>
+            </div>
+            <div class="items-group animate-in">
+                <div class="items-group-label"><span class="dot"></span> 关键方块</div>
+                <div class="items-grid">
+                    <div class="item-card"><div class="name">回音岩</div><div class="desc">记录 16 格内 5 种声音，踩踏时回放。</div></div>
+                    <div class="item-card"><div class="name">共鸣祭坛</div><div class="desc">合成寂静药水、回音护符、音叉。</div></div>
+                    <div class="item-card"><div class="name">静音灯</div><div class="desc">8 格内施加「静滞」，建立安全区。</div></div>
+                    <div class="item-card"><div class="name">回音玻璃</div><div class="desc">观察消散态残响的模糊轮廓。</div></div>
+                </div>
+            </div>
+            <div class="items-group animate-in animate-in-d2">
+                <div class="items-group-label danger"><span class="dot" style="background:var(--danger);"></span> 关键物品</div>
+                <div class="items-grid">
+                    <div class="item-card"><div class="name">寂静药水</div><div class="desc">回音碎片酿造，3 分钟静滞。</div></div>
+                    <div class="item-card"><div class="name">回音护符</div><div class="desc">感知 20 格内残响方位，伴随幻听。</div></div>
+                    <div class="item-card"><div class="name">音叉</div><div class="desc">蓄力敲击，显形并眩晕残响 4 秒。</div></div>
+                    <div class="item-card"><div class="name">遗忘摇篮曲</div><div class="desc">唱片，播放时残响平静 15 秒，结束后狂暴。</div></div>
+                    <div class="item-card"><div class="name">声波抑制器</div><div class="desc">V5 新增 · 便携式设备，可短时间消除自身脚步声和挖掘声。</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 第5屏: 探索与进度 -->
+    <section class="fullpage-section" data-index="4" id="slide-5" style="background:var(--bg-base);">
+        <div class="container">
+            <div class="section-header animate-in">
+                <div class="overline danger">世界与进度</div>
+                <h2>探索与成就</h2>
+            </div>
+            <div class="progress-grid">
+                <div class="progress-block animate-in animate-in-d1">
+                    <h4 style="color:var(--brand);">🗺️ 世界生成</h4>
+                    <ul>
+                        <li><span class="bullet">—</span> <strong>回声洞穴</strong> (Y &lt; 0) —— 回音岩与矿石遍布。</li>
+                        <li><span class="bullet">—</span> <strong>共鸣裂隙</strong> —— 低沉回响刷怪笼，战利品含护符与实验日志。</li>
+                        <li><span class="bullet">—</span> <strong>静默废墟</strong> —— 地表废弃村庄，村民化为消散态残响。</li>
+                        <li><span class="bullet">—</span> <strong>刷新自然建筑</strong> (V6) —— 废弃遗迹、地牢等建筑会在探索后逐渐刷新，持续提供新的探索内容。</li>
+                    </ul>
+                </div>
+                <div class="progress-block animate-in animate-in-d2">
+                    <h4 style="color:var(--danger);">🏆 进度系统</h4>
+                    <div class="achievement-list">
+                        <span class="achievement-badge"><span class="emoji">🎵</span> <strong>声之断崖</strong> 获得静滞</span>
+                        <span class="achievement-badge"><span class="emoji">⚔️</span> <strong>回响猎人</strong> 音叉眩晕残响</span>
+                        <span class="achievement-badge"><span class="emoji">⚠️</span> <strong>聆听禁忌</strong> 无静滞击杀 10 只</span>
+                        <span class="achievement-badge"><span class="emoji">🕳️</span> <strong>无声深处</strong> 进入共鸣裂隙</span>
+                        <span class="achievement-badge"><span class="emoji">👻</span> <strong>那是真的吗？</strong> 被虚像惊吓</span>
+                        <span class="achievement-badge"><span class="emoji">💿</span> <strong>遗忘摇篮曲</strong> 获得唱片</span>
+                        <span class="achievement-badge"><span class="emoji">🔊</span> <strong>低语终结者</strong> 击杀低语者 (V5)</span>
+                        <span class="achievement-badge"><span class="emoji">🏛️</span> <strong>建筑猎手</strong> 发现刷新后的自然建筑 (V6)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部细节 & 页脚 -->
+            <div class="animate-in animate-in-d3">
+                <div class="divider-wave" aria-hidden="true">
+                    <span>◆</span> <span>◆</span> <span>◆</span> <span>◆</span> <span>◆</span>
+                </div>
+                <div class="meta-bar">
+                    <span>🎧 环境音：多层混响 + 倒放失真低语</span>
+                    <span>📺 屏幕效果：实体化残响范围边缘出现雪花与色差</span>
+                    <span>🌫️ 静滞滤镜：画面褪色，灰蒙覆盖感官剥夺</span>
+                </div>
+                <div class="footer">
+                    <p>静默余响 · Resonant Echoes Mod &nbsp;|&nbsp; 在寂静中聆听，或在喧嚣中消亡</p>
+                    <p>适配 Minecraft 1.20.1 Forge</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 内容详情模态框 ====== -->
+    <div class="content-modal-overlay" id="contentModal">
+        <div class="content-modal-box">
+            <button class="modal-close" id="contentModalClose" aria-label="关闭">✕</button>
+            <div id="contentModalBody">
+                <!-- 动态渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== 联系作者模态框 ====== -->
+    <div class="contact-modal-overlay" id="contactModal">
+        <div class="contact-modal-box">
+            <button class="contact-modal-close" id="contactModalClose" aria-label="关闭">✕</button>
+
+            <div class="contact-modal-header">
+                <div class="icon-badge">✦ 联系作者</div>
+                <h2>获取 Mod</h2>
+                <p>滑动查看联系方式 · 添加请备注「静默余响」</p>
+            </div>
+
+            <div class="carousel-container">
+                <div class="carousel-track" id="carouselTrack"></div>
+            </div>
+
+            <div class="carousel-indicators" id="carouselIndicators"></div>
+
+            <div class="carousel-controls">
+                <button class="carousel-btn" id="carouselPrev">◀ 上一页</button>
+                <button class="carousel-btn primary" id="carouselNext">下一页 ▶</button>
+            </div>
+
+            <div class="contact-footer-note">
+                📢 <strong>联系作者获取 Mod</strong> · 欢迎加入静默余响的深渊之旅
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+               JavaScript
+               ============================================================ -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ============================================================
+            // 1. 粒子系统
+            // ============================================================
+            const canvas = document.getElementById('particles-canvas');
+            const ctx = canvas.getContext('2d');
+            let w, h;
+            const particles = [];
+            const PARTICLE_COUNT = 80;
+
+            function resize() {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            class Particle {
+                constructor() {
+                    this.reset();
+                }
+                reset() {
+                    this.x = Math.random() * w;
+                    this.y = Math.random() * h;
+                    this.size = Math.random() * 1.5 + 0.5;
+                    this.speedX = (Math.random() - 0.5) * 0.2;
+                    this.speedY = (Math.random() - 0.5) * 0.2;
+                    this.opacity = Math.random() * 0.3 + 0.05;
+                    this.pulse = Math.random() * Math.PI * 2;
+                    this.pulseSpeed = 0.005 + Math.random() * 0.01;
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    this.pulse += this.pulseSpeed;
+                    if (this.x < 0 || this.x > w) this.speedX *= -1;
+                    if (this.y < 0 || this.y > h) this.speedY *= -1;
+                }
+                draw() {
+                    const alpha = this.opacity * (0.6 + 0.4 * Math.sin(this.pulse));
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(0, 212, 255, ${alpha})`;
+                    ctx.fill();
+                }
+            }
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+
+            const redParticles = [];
+            for (let i = 0; i < 20; i++) {
+                const p = new Particle();
+                p.opacity = Math.random() * 0.1 + 0.02;
+                redParticles.push(p);
+            }
+
+            function drawLines() {
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 180) {
+                            const alpha = (1 - dist / 180) * 0.03;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(0, 212, 255, ${alpha})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                for (let i = 0; i < redParticles.length; i++) {
+                    for (let j = i + 1; j < redParticles.length; j++) {
+                        const dx = redParticles[i].x - redParticles[j].x;
+                        const dy = redParticles[i].y - redParticles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 140) {
+                            const alpha = (1 - dist / 140) * 0.02;
+                            ctx.beginPath();
+                            ctx.moveTo(redParticles[i].x, redParticles[i].y);
+                            ctx.lineTo(redParticles[j].x, redParticles[j].y);
+                            ctx.strokeStyle = `rgba(255, 23, 68, ${alpha})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            function animateParticles() {
+                ctx.clearRect(0, 0, w, h);
+                particles.forEach(p => { p.update();
+                    p.draw(); });
+                redParticles.forEach(p => { p.update();
+                    p.draw(); });
+                drawLines();
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+
+            // ============================================================
+            // 2. Toast
+            // ============================================================
+            function showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer') || (() => {
+                    const el = document.createElement('div');
+                    el.id = 'toastContainer';
+                    el.style.cssText =
+                        'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:360px;';
+                    document.body.appendChild(el);
+                    return el;
+                })();
+                const icons = { success: '✓', error: '✕', info: '⏣' };
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        background: var(--bg-soft);
+                        backdrop-filter: blur(8px);
+                        -webkit-backdrop-filter: blur(8px);
+                        border: 1px solid var(--border-soft);
+                        box-shadow: var(--shadow-md);
+                        color: var(--text-primary);
+                        font-size: 13px;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        transform: translateX(120%);
+                        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                        font-family: 'Inter', sans-serif;
+                        font-weight: 400;
+                        border-left: 2px solid ${type === 'error' ? 'var(--danger)' : 'var(--brand)'};
+                    `;
+                toast.innerHTML = `<span style="font-size:16px;">${icons[type] || '⏣'}</span> ${message}`;
+                container.appendChild(toast);
+                requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; });
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(120%)';
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 400);
+                }, 3500);
+            }
+
+            // ============================================================
+            // 3. 平滑滚动 — 为所有 .smooth-scroll 链接添加平滑滚动
+            // ============================================================
+            document.querySelectorAll('.smooth-scroll').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const targetId = this.getAttribute('href');
+                    if (targetId && targetId.startsWith('#')) {
+                        e.preventDefault();
+                        const target = document.querySelector(targetId);
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                });
+            });
+
+            // ============================================================
+            // 4. 滚动触发动画 & 导航点更新 (Intersection Observer)
+            // ============================================================
+            const sections = document.querySelectorAll('.fullpage-section');
+            const dots = document.querySelectorAll('.nav-dots li');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const section = entry.target;
+                    const index = parseInt(section.dataset.index);
+                    if (entry.isIntersecting) {
+                        dots.forEach((dot, i) => {
+                            dot.classList.toggle('active', i === index);
+                        });
+                        const anims = section.querySelectorAll('.animate-in:not(.visible)');
+                        anims.forEach(el => {
+                            setTimeout(() => {
+                                el.classList.add('visible');
+                            }, 100);
+                        });
+                    }
+                });
+            }, {
+                threshold: 0.3,
+                rootMargin: '0px 0px -10% 0px'
+            });
+
+            sections.forEach(section => observer.observe(section));
+
+            // 初始触发
+            setTimeout(() => {
+                sections.forEach(section => {
+                    const rect = section.getBoundingClientRect();
+                    const windowHeight = window.innerHeight;
+                    if (rect.top < windowHeight * 0.7 && rect.bottom > 0) {
+                        const index = parseInt(section.dataset.index);
+                        dots.forEach((dot, i) => {
+                            dot.classList.toggle('active', i === index);
+                        });
+                        const anims = section.querySelectorAll('.animate-in:not(.visible)');
+                        anims.forEach(el => {
+                            el.classList.add('visible');
+                        });
+                    }
+                });
+            }, 200);
+
+            // ============================================================
+            // 5. 导航点点击 — 平滑滚动
+            // ============================================================
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', function() {
+                    const target = sections[index];
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+
+            // 导航栏链接点击
+            document.querySelectorAll('.nav-links a[href^="#slide-"]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const target = document.querySelector(targetId);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+
+            // ============================================================
+            // 6. 内容模态框
+            // ============================================================
+            const contentModal = document.getElementById('contentModal');
+            const contentModalClose = document.getElementById('contentModalClose');
+            const contentModalBody = document.getElementById('contentModalBody');
+
+            const contentData = {
+                team: {
+                    title: '👥 团队介绍',
+                    badge: '核心成员',
+                    meta: '静默余响 · 开发团队',
+                    body: `
+                            <p>「静默余响」由一群热爱生存挑战与恐怖元素的 Minecraft 玩家共同创作。我们致力于将听觉恐怖与深度生存机制融合，为玩家带来独一无二的游戏体验。</p>
+                            <h3>核心成员：bili|坚持梦想SYS,QQ|:WCJie0817</h3>
+                            <div class="team-member">
+                                <div class="avatar">K</div>
+                                <div class="info"><div class="name">项目负责人:坚持梦想SYS</div><div class="role">玩法设计 · 核心编程</div></div>
+                            </div>
+                            <div class="team-member">
+                                <div class="avatar">L</div>
+                                <div class="info"><div class="name">艺术总监:坚持梦想SYS</div><div class="role">生物建模 · 纹理设计 · 环境音效</div></div>
+                            </div>
+                            <div class="team-member">
+                                <div class="avatar">R</div>
+                                <div class="info"><div class="name">系统架构师:坚持梦想SYS</div><div class="role">音效系统 · 网络同步 · 性能优化</div></div>
+                            </div>
+                            <div class="team-member">
+                                <div class="avatar">E</div>
+                                <div class="info"><div class="name">叙事设计师:坚持梦想SYS</div><div class="role">世界观构建 · 剧情编写 · 进度系统</div></div>
+                            </div>
+                            <div class="team-member">
+                                <div class="avatar">E</div>
+                                <div class="info"><div class="name">网站编写:坚持梦想SYS，WCJie0817</div><div class="role">世界观构建 · 剧情编写 · 进度系统</div></div>
+                            </div>
+                            <h3>加入我们</h3>
+                            <p>我们欢迎所有对 Mod 开发感兴趣的朋友。如果你有编程、美术、音效或策划方面的特长，欢迎通过 QQ 与我们联系。</p>
+                        `
+                },
+                devlog: {
+                    title: '📝 开发日志',
+                    badge: '最新进展',
+                    meta: '2026年7月 · 内测 V6 阶段',
+                    body: `
+                            <p>记录「静默余响」Mod 的开发历程与幕后故事。</p>
+                            <h3>2026.07.25 — V6 版本发布：自然建筑刷新</h3>
+                            <p>V6 引入了「自然建筑刷新」机制，废弃遗迹、地牢、废弃矿井等建筑现在会在玩家探索并离开后逐渐重新生成。这为游戏世界带来了持续的新鲜感，每次回归都可能发现新的探索目标。</p>
+                            <h3>2026.07.22 — V5.1 优化版本</h3>
+                            <p>V5.1 优化了低语者 AI、声波抑制器平衡以及音效引擎性能，修复了多个 Bug，为后续版本打下基础。</p>
+                            <h3>2026.07.20 — V5 版本发布</h3>
+                            <p>V5 新增了「低语者」生物和「声波抑制器」道具，并对音效引擎进行了全面升级。</p>
+                            <h3>2026.07.16 — V4 版本发布</h3>
+                            <p>V4 重构了残响的生成逻辑，并实装了动态混响音效系统。</p>
+                        `
+                },
+                changelog: {
+                    title: '📋 更新日志',
+                    badge: '内测版',
+                    meta: 'v6.0 · 当前版本',
+                    body: `
+                            <p>「静默余响」当前处于密集开发阶段。以下是内测版 V6 的更新内容。</p>
+                            <div class="changelog-item">
+                                <div><span class="version-tag" style="background:rgba(0,212,255,0.08);color:#00d4ff;">v6.0</span> <strong>内测版 · 刷新自然建筑</strong> <span class="date">2026.07.25</span></div>
+                                <ul class="changes">
+                                    <li>✅ 新增「自然建筑刷新」机制：废弃遗迹、地牢、废弃矿井等建筑会在玩家探索后逐渐重新生成</li>
+                                    <li>✅ 新增成就「建筑猎手」—— 发现刷新后的自然建筑</li>
+                                    <li>✅ 优化世界生成算法，减少建筑重叠，提升自然分布</li>
+                                    <li>✅ 调整残响与低语者在刷新建筑中的生成几率，增加探索风险</li>
+                                    <li>🔧 改进建筑刷新逻辑，避免在玩家视野内刷新，保持沉浸感</li>
+                                    <li>🐛 修复低语者在某些地形中卡住的 Bug</li>
+                                    <li>🐛 修复声波抑制器与静滞状态叠加时的异常行为</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div><span class="version-tag" style="background:rgba(0,212,255,0.08);color:#00d4ff;">v5.1</span> <strong>内测版 · 优化迭代</strong> <span class="date">2026.07.22</span></div>
+                                <ul class="changes">
+                                    <li>🔧 优化低语者 AI 行为逻辑，降低不必要的性能消耗</li>
+                                    <li>🔧 调整声波抑制器持续时间，平衡游戏体验</li>
+                                    <li>🔧 优化音效引擎 2.0 性能，降低 CPU 占用</li>
+                                    <li>🐛 修复低语者同步延迟的问题</li>
+                                </ul>
+                            </div>
+                            <div class="changelog-item">
+                                <div><span class="version-tag" style="background:rgba(255,23,68,0.08);color:#ff1744;">v5.0</span> <strong>内测版 · 低语深渊</strong> <span class="date">2026.07.20</span></div>
+                                <ul class="changes">
+                                    <li>✅ 新增生物「低语者」</li>
+                                    <li>✅ 新增物品「声波抑制器」</li>
+                                    <li>✅ 音效引擎 2.0 升级</li>
+                                </ul>
+                            </div>
+                        `
+                }
+            };
+
+            function openContentModal(key) {
+                const data = contentData[key];
+                if (!data) { showToast('内容加载失败', 'error'); return; }
+                contentModalBody.innerHTML = `
+                        <div class="content-title">
+                            ${data.title}
+                            <span class="badge">${data.badge}</span>
+                        </div>
+                        <div class="content-meta">${data.meta}</div>
+                        <div class="content-body">${data.body}</div>
+                    `;
+                contentModal.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeContentModal() {
+                contentModal.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+
+            contentModalClose.addEventListener('click', closeContentModal);
+            contentModal.addEventListener('click', (e) => { if (e.target === contentModal) closeContentModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContentModal(); });
+
+            document.querySelectorAll('[data-content]').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const key = this.dataset.content;
+                    document.querySelectorAll('.nav-dropdown.open').forEach(d => d.classList.remove('open'));
+                    openContentModal(key);
+                });
+            });
+
+            // ============================================================
+            // 7. 二级菜单交互
+            // ============================================================
+            const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+            dropdowns.forEach(dropdown => {
+                dropdown.addEventListener('mouseenter', function(e) {
+                    if (window.innerWidth > 768) {
+                        dropdowns.forEach(d => { if (d !== this) d.classList.remove('open'); });
+                        this.classList.add('open');
+                    }
+                });
+                dropdown.addEventListener('mouseleave', function(e) {
+                    if (window.innerWidth > 768) {
+                        const related = e.relatedTarget;
+                        if (related && this.contains(related)) return;
+                        this.classList.remove('open');
+                    }
+                });
+
+                const toggle = dropdown.querySelector('.dropdown-toggle');
+                if (toggle) {
+                    toggle.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (window.innerWidth <= 768) {
+                            const parent = this.closest('.nav-dropdown');
+                            const isOpen = parent.classList.contains('open');
+                            dropdowns.forEach(d => { if (d !== parent) d.classList.remove('open'); });
+                            parent.classList.toggle('open');
+                        }
+                    });
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    if (!e.target.closest('.nav-dropdown')) {
+                        dropdowns.forEach(d => d.classList.remove('open'));
+                    }
+                }
+            });
+
+            // ============================================================
+            // 8. 联系作者 — 滑动轮播
+            // ============================================================
+            const contactData = [
+                { icon: '💬', label: 'QQ', value: '3844055651', hint: '添加请备注「静默余响」' },
+                { icon: '✉️', label: '邮箱', value: '3844055651@qq.com', hint: '发送邮件请注明「Mod 获取」' }
+            ];
+
+            let contactIndex = 0;
+            let contactTimer = null;
+            const contactTrack = document.getElementById('carouselTrack');
+            const contactIndicators = document.getElementById('carouselIndicators');
+            const contactPrev = document.getElementById('carouselPrev');
+            const contactNext = document.getElementById('carouselNext');
+
+            function renderContactSlides() {
+                contactTrack.innerHTML = '';
+                contactData.forEach((item, index) => {
+                    const slide = document.createElement('div');
+                    slide.className = 'carousel-slide';
+                    slide.innerHTML = `
+                            <span class="contact-icon">${item.icon}</span>
+                            <span class="contact-label">${item.label}</span>
+                            <span class="contact-value">${item.value}</span>
+                            <div class="contact-hint">
+                                <span class="arrow">▸</span> ${item.hint}
+                            </div>
+                            <button class="copy-btn" data-copy="${item.value}">复制</button>
+                        `;
+                    contactTrack.appendChild(slide);
+                });
+                renderContactIndicators();
+
+                contactTrack.querySelectorAll('.copy-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const text = this.dataset.copy;
+                        copyContactText(text, this);
+                    });
+                });
+            }
+
+            function renderContactIndicators() {
+                contactIndicators.innerHTML = '';
+                contactData.forEach((_, index) => {
+                    const dot = document.createElement('button');
+                    dot.className = 'carousel-dot' + (index === contactIndex ? ' active' : '');
+                    dot.dataset.index = index;
+                    dot.addEventListener('click', () => goToContact(index));
+                    contactIndicators.appendChild(dot);
+                });
+            }
+
+            function goToContact(index) {
+                const total = contactData.length;
+                contactIndex = index;
+                if (contactIndex >= total) contactIndex = 0;
+                if (contactIndex < 0) contactIndex = total - 1;
+                contactTrack.style.transform = `translateX(-${contactIndex * 100}%)`;
+                document.querySelectorAll('#carouselIndicators .carousel-dot').forEach((dot, i) => {
+                    dot.classList.toggle('active', i === contactIndex);
+                });
+                resetContactTimer();
+            }
+
+            function nextContact() { goToContact(contactIndex + 1); }
+
+            function prevContact() { goToContact(contactIndex - 1); }
+
+            function resetContactTimer() {
+                if (contactTimer) { clearInterval(contactTimer);
+                    contactTimer = null; }
+                contactTimer = setInterval(nextContact, 4000);
+            }
+
+            function copyContactText(text, btn) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        btn.textContent = '已复制 ✓';
+                        btn.classList.add('copied');
+                        setTimeout(() => {
+                            btn.textContent = '复制';
+                            btn.classList.remove('copied');
+                        }, 2000);
+                        showToast(`已复制：${text}`, 'success');
+                    }).catch(() => { fallbackCopyContact(text, btn); });
+                } else {
+                    fallbackCopyContact(text, btn);
+                }
+            }
+
+            function fallbackCopyContact(text, btn) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    btn.textContent = '已复制';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = '复制';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                    showToast(`已复制：${text}`, 'success');
+                } catch (err) {
+                    showToast('复制失败，请手动复制', 'error');
+                }
+                document.body.removeChild(textarea);
+            }
+
+            const contactModalEl = document.getElementById('contactModal');
+            const contactBtn = document.getElementById('contactBtn');
+            const contactClose = document.getElementById('contactModalClose');
+
+            function openContactModal() {
+                contactModalEl.classList.add('open');
+                document.body.style.overflow = 'hidden';
+                renderContactSlides();
+                goToContact(0);
+                resetContactTimer();
+            }
+
+            function closeContactModal() {
+                contactModalEl.classList.remove('open');
+                document.body.style.overflow = '';
+                if (contactTimer) { clearInterval(contactTimer);
+                    contactTimer = null; }
+            }
+
+            contactBtn.addEventListener('click', openContactModal);
+            contactClose.addEventListener('click', closeContactModal);
+            contactModalEl.addEventListener('click', (e) => { if (e.target === contactModalEl) closeContactModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContactModal(); });
+
+            contactPrev.addEventListener('click', prevContact);
+            contactNext.addEventListener('click', nextContact);
+
+            // 触摸滑动
+            let contactTouchStart = 0;
+            const contactContainer = document.querySelector('.carousel-container');
+            contactContainer.addEventListener('touchstart', (e) => {
+                contactTouchStart = e.changedTouches[0].screenX;
+            }, { passive: true });
+            contactContainer.addEventListener('touchend', (e) => {
+                const diff = contactTouchStart - e.changedTouches[0].screenX;
+                if (Math.abs(diff) > 40) {
+                    if (diff > 0) nextContact();
+                    else prevContact();
+                }
+            }, { passive: true });
+
+            // ============================================================
+            // 9. 窗口大小变化处理
+            // ============================================================
+            let lastWidth = window.innerWidth;
+            window.addEventListener('resize', () => {
+                const currentWidth = window.innerWidth;
+                if (currentWidth > 768 && lastWidth <= 768) {
+                    dropdowns.forEach(d => d.classList.remove('open'));
+                }
+                lastWidth = currentWidth;
+            });
+
+            console.log('🔊 静默余响 · V6 内测版 · 自然滚动体验');
+            console.log('📞 联系方式：QQ 3844055651 · 邮箱 3844055651@qq.com');
+            console.log('🎯 首页按钮：回直面响 → 机制 | 聆听禁忌 → 生物 | 了解更多 → 进度');
+
+        })();
+    </script>
+
+</body>
+</html>
